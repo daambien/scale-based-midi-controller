@@ -56,6 +56,9 @@
 
 USBMIDI_CREATE_DEFAULT_INSTANCE();
 
+
+const int SOFT_POT_PIN = A3;
+
 const byte ROWS = 9;  //four rows
 const byte COLS = 6;  //three columns
 const int MIDIROOT = 60;
@@ -118,6 +121,8 @@ bool specialKeyHeld = false;
 
 int last3Keys[3] = {-1, -1, -1};
 
+int lastPitchBend = 0;
+
 byte rowPins[ROWS] = { 1, 0, 2, 3, 4, 5, 6, 7, 8 };  //connect to the row pinouts of the keypad
 byte colPins[COLS] = { 18, 15, 14, 16, 10, 9 };      //connect to the column pinouts of the keypad
 
@@ -132,11 +137,19 @@ void apply_default_kcodeToNoteCode(){
 void setup() {
   Serial.begin(9600);
   MIDI.begin(1);
-
+  pinMode(SOFT_POT_PIN, INPUT);
   apply_default_kcodeToNoteCode();
 }
 
 void loop() {
+  int softPotADC = analogRead(SOFT_POT_PIN);
+  int softPotPosition = 0;
+  
+  if(softPotADC != 0){
+    softPotADC = 1024 - softPotADC;
+    softPotPosition = map(softPotADC, 0, 1023, -8192, 8191);
+  }
+
   if (kpd.getKeys()) {
     for (int i = 0; i < LIST_MAX; i++)  // Scan the whole key list.
     {
@@ -156,6 +169,14 @@ void loop() {
         }
       }
     }
+  }
+  
+  if(softPotPosition != 0){
+    MIDI.sendPitchBend(softPotPosition, 1);
+    lastPitchBend = softPotPosition;
+  } else if(softPotPosition == 0 && lastPitchBend != 0){
+    MIDI.sendPitchBend(0, 1);
+    lastPitchBend = 0;
   }
 }  // End loop
 
